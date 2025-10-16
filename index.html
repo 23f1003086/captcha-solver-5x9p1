@@ -1,70 +1,86 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Captcha Solver</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f4f4f4;
-        }
-        img {
-            max-width: 100%;
-            height: auto;
-            margin-bottom: 20px;
-        }
-        #result {
-            font-size: 24px;
-            font-weight: bold;
-            color: #333;
-        }
-        #error {
-            color: red;
-            font-weight: bold;
-        }
-    </style>
-    <script src="https://cdn.rawgit.com/naptha/tesseract.js/2.1.1/dist/tesseract.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Captcha Solver</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #f4f4f4;
+    }
+    img {
+      max-width: 100%;
+      height: auto;
+      margin-bottom: 20px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    #result {
+      font-size: 22px;
+      font-weight: bold;
+      color: #333;
+      text-align: center;
+    }
+    #error {
+      color: red;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+  </style>
 </head>
 <body>
-    <h1>Captcha Solver</h1>
-    <img id="captchaImage" src="" alt="Captcha Image">
-    <div id="result"></div>
-    <div id="error"></div>
-    <script>
-        async function solveCaptcha(imageUrl) {
-            const img = document.getElementById('captchaImage');
-            img.src = imageUrl;
+  <h1>Captcha Solver</h1>
+  <img id="captchaImage" src="" alt="Captcha Image">
+  <div id="result">Processing...</div>
+  <div id="error"></div>
 
-            try {
-                const { data: { text } } = await Tesseract.recognize(
-                    img,
-                    'eng',
-                    {
-                        logger: info => console.log(info) // Optional: Log progress
-                    }
-                );
-                document.getElementById('result').innerText = `Solved Captcha: ${text}`;
-            } catch (err) {
-                document.getElementById('error').innerText = 'Error solving captcha: ' + err.message;
+  <!-- ✅ Use official stable CDN (RawGit is dead) -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
+
+  <script>
+    async function solveCaptcha(imageUrl) {
+      const img = document.getElementById('captchaImage');
+      img.src = imageUrl;
+
+      // Small delay to ensure image loads fully before recognition
+      await new Promise(r => img.onload = r);
+
+      try {
+        const { data: { text } } = await Tesseract.recognize(
+          img,
+          'eng',
+          {
+            logger: info => {
+              if (info.status === 'recognizing text') {
+                document.getElementById('result').innerText = `Recognizing... ${Math.round(info.progress * 100)}%`;
+              }
+              console.log(info);
             }
-        }
+          }
+        );
 
-        function getUrlParameter(name) {
-            const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get(name);
-        }
+        document.getElementById('result').innerText = `✅ Solved Captcha: ${text.trim()}`;
+      } catch (err) {
+        document.getElementById('error').innerText = '❌ Error solving captcha: ' + err.message;
+      }
+    }
 
-        window.onload = function() {
-            const url = getUrlParameter('url') || 'sample.png';
-            solveCaptcha(url);
-        };
-    </script>
+    function getUrlParameter(name) {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get(name);
+    }
+
+    window.onload = function() {
+      const url = getUrlParameter('url') || 'sample.png';
+      solveCaptcha(url);
+    };
+  </script>
 </body>
 </html>
