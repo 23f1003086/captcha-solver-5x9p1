@@ -44,30 +44,33 @@
             return urlParams.get(name);
         }
 
-        function preprocessImage(img) {
-            // Create a canvas
+        function preprocessImage(img, rotation = 0) {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
-            canvas.width = img.naturalWidth;
-            canvas.height = img.naturalHeight;
+
+            // Rotate canvas if needed
+            const angle = rotation * Math.PI / 180;
+            const w = img.naturalWidth;
+            const h = img.naturalHeight;
+            canvas.width = w;
+            canvas.height = h;
+            ctx.translate(w / 2, h / 2);
+            ctx.rotate(angle);
+            ctx.translate(-w / 2, -h / 2);
             ctx.drawImage(img, 0, 0);
 
             // Get image data
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
 
-            // Convert to grayscale & increase contrast
+            // Convert to grayscale & threshold
             for (let i = 0; i < data.length; i += 4) {
-                const r = data[i];
-                const g = data[i+1];
-                const b = data[i+2];
+                const r = data[i], g = data[i+1], b = data[i+2];
                 let gray = 0.3*r + 0.59*g + 0.11*b;
-
-                // Simple contrast adjustment
                 gray = gray < 128 ? 0 : 255;
-
                 data[i] = data[i+1] = data[i+2] = gray;
             }
+
             ctx.putImageData(imageData, 0, 0);
             return canvas;
         }
@@ -77,19 +80,35 @@
             img.src = imageUrl;
 
             img.onload = async () => {
-                try {
-                    const canvas = preprocessImage(img);
+                const rotations = [-5, 0, 5]; // Try small angles for wavy text
+                let bestText = '';
+                let bestConfidence = 0;
 
-                    const { data: { text } } = await Tesseract.recognize(
-                        canvas,
-                        'eng',
-                        { logger: info => console.log(info) }
-                    );
+                for (const rot of rotations) {
+                    const canvas = preprocessImage(img, rot);
+                    try {
+                        const result = await Tesseract.recognize(canvas, 'eng', {
+                            logger: info => console.log(info)
+                        });
 
-                    document.getElementById('result').innerText = `✅ Solved Captcha: ${text.trim()}`;
-                } catch (err) {
-                    document.getElementById('error').innerText = 'Error solving captcha: ' + err.message;
+                        const text = result.data.text.trim();
+                        const conf = result.data.confidence;
+
+                        if (text && conf > bestConfidence) {
+                            bestText = text;
+                            bestConfidence = conf;
+                        }
+                    } catch (err) {
+                        console.log(`OCR failed for rotation ${rot}: ${err.message}`);
+                    }
+                }
+
+                if (bestText) {
+                    document.getElementById('result').innerText = `✅ Solved Captcha: ${bestText}`;
+                    document.getElementById('error').innerText = '';
+                } else {
                     document.getElementById('result').innerText = '';
+                    document.getElementById('error').innerText = '❌ Failed to solve captcha.';
                 }
             }
 
@@ -100,10 +119,11 @@
         }
 
         window.onload = function() {
-            const url = getUrlParameter('url') || 'sample.png'; // Your original captcha
+            const url = getUrlParameter('url') || 'sample.png'; // Keep your original captcha
             solveCaptcha(url);
         };
     </script>
 </body>
 </html>
+
 
