@@ -27,48 +27,76 @@
       font-weight: bold;
       color: #333;
       text-align: center;
+      margin-top: 10px;
     }
     #error {
       color: red;
       font-weight: bold;
       margin-top: 10px;
+      text-align: center;
     }
   </style>
 </head>
 <body>
   <h1>Captcha Solver</h1>
   <img id="captchaImage" src="" alt="Captcha Image">
-  <div id="result">Processing...</div>
+  <div id="result">Waiting for image...</div>
   <div id="error"></div>
 
-  <!-- ✅ Use official stable CDN (RawGit is dead) -->
+  <!-- ✅ Correct official CDN -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
 
   <script>
-    async function solveCaptcha(imageUrl) {
-      const img = document.getElementById('captchaImage');
-      img.src = imageUrl;
+    // 🧩 Preprocess image (contrast + brightness enhancement)
+    async function preprocessImage(url) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.filter = "contrast(1.5) brightness(1.2)";
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL("image/png"));
+        };
+        img.onerror = reject;
+        img.src = url;
+      });
+    }
 
-      // Small delay to ensure image loads fully before recognition
-      await new Promise(r => img.onload = r);
+    // 🧠 Perform OCR using Tesseract.js
+    async function solveCaptcha(imageUrl) {
+      const imgEl = document.getElementById('captchaImage');
+      imgEl.src = imageUrl;
+
+      document.getElementById('result').innerText = "Preprocessing image...";
 
       try {
+        const processedImage = await preprocessImage(imageUrl);
+        document.getElementById('result').innerText = "Recognizing text...";
+
         const { data: { text } } = await Tesseract.recognize(
-          img,
+          processedImage,
           'eng',
           {
             logger: info => {
               if (info.status === 'recognizing text') {
-                document.getElementById('result').innerText = `Recognizing... ${Math.round(info.progress * 100)}%`;
+                document.getElementById('result').innerText = 
+                  `Recognizing... ${Math.round(info.progress * 100)}%`;
               }
               console.log(info);
             }
           }
         );
 
-        document.getElementById('result').innerText = `✅ Solved Captcha: ${text.trim()}`;
+        document.getElementById('result').innerText = 
+          text.trim() ? `✅ Solved Captcha: ${text.trim()}` : "⚠️ No text detected.";
       } catch (err) {
-        document.getElementById('error').innerText = '❌ Error solving captcha: ' + err.message;
+        console.error(err);
+        document.getElementById('error').innerText = 
+          '❌ Error solving captcha: ' + err.message;
       }
     }
 
@@ -78,7 +106,7 @@
     }
 
     window.onload = function() {
-      const url = getUrlParameter('url') || 'sample.png';
+      const url = getUrlParameter('url') || 'https://tesseract.projectnaptha.com/img/eng_bw.png';
       solveCaptcha(url);
     };
   </script>
