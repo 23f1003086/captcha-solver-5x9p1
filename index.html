@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Captcha Solver</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f4f4;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            margin-bottom: 20px;
+        }
+        #result {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        #error {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+    <script src="https://cdn.rawgit.com/naptha/tesseract.js/2.1.1/dist/tesseract.min.js"></script>
+</head>
+<body>
+    <h1>Captcha Solver</h1>
+    <img id="captchaImage" src="" alt="Captcha Image">
+    <div id="result"></div>
+    <div id="error"></div>
+    <script>
+        async function solveCaptcha(imageUrl) {
+            const img = document.getElementById('captchaImage');
+            img.src = imageUrl;
+
+            try {
+                const { data: { text } } = await Tesseract.recognize(
+                    img,
+                    'eng',
+                    {
+                        logger: info => console.log(info) // Optional: Log progress
+                    }
+                );
+                document.getElementById('result').innerText = `Solved Captcha: ${text}`;
+            } catch (err) {
+                document.getElementById('error').innerText = 'Error solving captcha: ' + err.message;
+            }
+        }
+
+        function getUrlParameter(name) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(name);
+        }
+
+        window.onload = function() {
+            const url = getUrlParameter('url') || 'sample.png';
+            solveCaptcha(url);
+        };
+    </script>
+</body>
+</html>
